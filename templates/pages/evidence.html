@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Provenance & Evidence — WLAN Observatory{% endblock %}
+{% block header_title %}Provenance Ledger & Exportable Project Report{% endblock %}
+
+{% block content %}
+<div class="panel">
+  <div class="panel-header">
+    <div class="panel-title">
+      <span>Provenance Classification Ledger</span>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="exportReportJson()">Export Project Report (JSON)</button>
+  </div>
+  <div class="panel-body">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Metric Identifier</th>
+          <th>Evidence Class</th>
+          <th>Data Source / Mathematical Derivation</th>
+          <th>Methodological Notes & Guardrails</th>
+        </tr>
+      </thead>
+      <tbody id="provenance-ledger-body">
+        <tr><td colspan="4" style="text-align:center;">Loading provenance schema...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-header">
+    <div class="panel-title">
+      <span>Scientific Findings & Limitations Summary</span>
+    </div>
+  </div>
+  <div class="panel-body" style="font-size:13px; line-height:1.6; color:var(--text-muted);">
+    <h4 style="color:var(--text-main); margin-bottom:8px;">1. Trace Heterogeneity Insights</h4>
+    <p style="margin-bottom:12px;">
+      Empirical analysis of the CRAWDAD PAM'09 mesh dataset indicates pronounced SNR and noise floor variation across 5 GHz and 2.4 GHz bands. However, frame counts in trace captures reflect snapshot samples, and cannot be interpreted as channel airtime load or medium utilization.
+    </p>
+
+    <h4 style="color:var(--text-main); margin-bottom:8px;">2. Explainable Channel Ranking</h4>
+    <p style="margin-bottom:12px;">
+      The channel ranking model uses bounded score anchors across physical SNR, noise floor, stability, and transmission rates. Small sample sizes are accounted for through explicit confidence interval bounds. Weights represent user or policy preference and are marked <span class="prov-badge prov-assumed">ASSUMED</span>.
+    </p>
+
+    <h4 style="color:var(--text-main); margin-bottom:8px;">3. CSMA/CA MAC Modeling & Bianchi Validation</h4>
+    <p style="margin-bottom:12px;">
+      The discrete-event DCF engine simulates contending wireless stations under IEEE 802.11 standards. Under saturated, error-free conditions, simulation results closely match Bianchi's 2000 analytical model within predictable Monte Carlo confidence bounds.
+    </p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadProvenanceLedger() {
+  try {
+    const res = await API.get('/api/evidence/registry');
+    const metrics = res.registry.metrics;
+    const tbody = document.getElementById('provenance-ledger-body');
+    tbody.innerHTML = Object.keys(metrics).map(k => {
+      const m = metrics[k];
+      const cls = m.class.toLowerCase();
+      return `
+        <tr>
+          <td class="font-mono"><strong>${k}</strong></td>
+          <td><span class="prov-badge prov-${cls}">${m.class}</span></td>
+          <td style="color:var(--text-main);">${m.source || '--'}</td>
+          <td style="color:var(--text-muted); font-size:11px;">${m.notes || (m.assumptions ? m.assumptions.join('; ') : 'Standard telemetry')}</td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function exportReportJson() {
+  try {
+    const res = await API.get('/api/evidence/report');
+    const blob = new Blob([JSON.stringify(res.report, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `wlan_observatory_report_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert('Failed to export report: ' + err.message);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', loadProvenanceLedger);
+</script>
+{% endblock %}

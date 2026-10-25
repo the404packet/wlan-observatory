@@ -1,0 +1,793 @@
+{% extends "base.html" %}
+
+{% block title %}CSMA/CA Simulator — WLAN Observatory{% endblock %}
+{% block header_title %}CSMA/CA DCF Simulation Workbench{% endblock %}
+
+{% block content %}
+<div class="simulator-layout">
+
+  <!-- ── Left: Configuration Panel ─────────────────────────────── -->
+  <div class="panel sim-controls-panel" style="margin-bottom:0;">
+    <div class="panel-header">
+      <div class="panel-title">⚙️ Simulation Parameters</div>
+      <span class="prov-badge prov-assumed">ASSUMED</span>
+    </div>
+    <div class="panel-body" style="padding:14px;">
+
+      <!-- Stations & Strategy -->
+      <div class="param-section" style="margin-top:0; border-top:none; padding-top:0;">Network Topology</div>
+      <div class="form-group">
+        <label class="form-label">Contending Stations (N)</label>
+        <input type="number" id="sim-stations" class="form-control" value="5" min="1" max="25">
+        <div class="form-hint">Number of independent stations competing for the wireless medium.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Backoff Strategy</label>
+        <select id="sim-strategy" class="form-control">
+          <option value="BEB">Binary Exponential Backoff (BEB) — IEEE Standard</option>
+          <option value="FIXED">Fixed Contention Window — Experimental</option>
+        </select>
+      </div>
+
+      <!-- Contention Window -->
+      <div class="param-section">Contention Window</div>
+      <div class="stat-grid">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">CW<sub>min</sub></label>
+          <input type="number" id="sim-cwmin" class="form-control" value="15">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">CW<sub>max</sub></label>
+          <input type="number" id="sim-cwmax" class="form-control" value="1023">
+        </div>
+      </div>
+      <div class="form-hint" style="margin-top:5px;">802.11a defaults: 15 / 1023. On each collision, BEB doubles: CW → min(2(CW+1)−1, CW_max).</div>
+
+      <!-- PHY Layer -->
+      <div class="param-section">Physical Layer</div>
+      <div class="stat-grid">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Payload (Bytes)</label>
+          <input type="number" id="sim-payload" class="form-control" value="1000">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">PHY Rate (Mbps)</label>
+          <input type="number" id="sim-rate" class="form-control" value="6.0" step="0.5">
+        </div>
+      </div>
+
+      <!-- MAC Options -->
+      <div class="param-section">MAC Options</div>
+      <div class="form-group">
+        <label class="form-label">4-Way Handshake (RTS/CTS)</label>
+        <select id="sim-rts" class="form-control">
+          <option value="false">Disabled — Basic DATA / ACK (2-way)</option>
+          <option value="true">Enabled — RTS / CTS / DATA / ACK (4-way)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Assumed Frame Error Prob (FER)</label>
+        <input type="number" id="sim-fer" class="form-control" value="0.0" min="0" max="0.9" step="0.05">
+        <div class="form-hint">Set to 0.0 for Bianchi-comparable (error-free) conditions.</div>
+      </div>
+
+      <!-- Traffic -->
+      <div class="param-section">Traffic Model</div>
+      <div class="form-group">
+        <label class="form-label">Traffic Pattern</label>
+        <select id="sim-traffic" class="form-control">
+          <option value="SATURATED">Saturated — Queues always non-empty (Bianchi model)</option>
+          <option value="POISSON">Poisson — Random inter-arrival intervals</option>
+        </select>
+      </div>
+
+      <!-- Execution -->
+      <div class="param-section">Execution</div>
+      <div class="stat-grid">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Retry Limit</label>
+          <input type="number" id="sim-retries" class="form-control" value="7">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Replications</label>
+          <input type="number" id="sim-reps" class="form-control" value="3" min="1" max="10">
+        </div>
+      </div>
+
+      <hr class="section-divider" style="margin:14px 0 12px;">
+
+      <button class="btn btn-primary btn-lg" style="width:100%;" id="btn-run-sim" onclick="executeSimulation()">
+        ▶ Run DCF Simulation
+      </button>
+      <button class="btn" style="width:100%; margin-top:8px;" onclick="saveCurrentSimulation()">
+        💾 Save Experiment Run
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Right: Results Workspace ──────────────────────────────── -->
+  <div class="sim-results-panel">
+
+    <!-- Aggregate KPI Row -->
+    <div class="sim-metric-grid">
+      <div class="sim-metric-card success">
+        <div class="card-label">Aggregate Throughput <span class="prov-badge prov-simulated">SIM</span></div>
+        <div class="card-value" id="res-th">— Mbps</div>
+        <div class="card-ci" id="res-th-ci">95% CI: [—, —]</div>
+      </div>
+      <div class="sim-metric-card danger">
+        <div class="card-label">Collision Probability <span class="prov-badge prov-simulated">SIM</span></div>
+        <div class="card-value" id="res-col">— %</div>
+        <div class="card-ci" id="res-col-ci">95% CI: [—, —]</div>
+      </div>
+      <div class="sim-metric-card warning">
+        <div class="card-label">Mean Access Delay <span class="prov-badge prov-simulated">SIM</span></div>
+        <div class="card-value" id="res-delay">— ms</div>
+        <div class="card-ci" id="res-p95-delay">P95: — ms</div>
+      </div>
+      <div class="sim-metric-card purple">
+        <div class="card-label">Jain's Fairness Index <span class="prov-badge prov-simulated">SIM</span></div>
+        <div class="card-value" id="res-fairness">—</div>
+        <div class="card-ci">1.0 = perfectly fair</div>
+      </div>
+    </div>
+
+    <!-- Playback Controls -->
+    <div class="sim-control-bar">
+      <div class="control-bar-left">
+        <div class="live-badge idle" id="live-indicator">
+          <span class="pulse"></span>
+          <span id="live-text">STOPPED</span>
+        </div>
+        <button class="btn btn-success" id="btn-play-pause" onclick="togglePlayback()">▶ Play</button>
+        <button class="btn btn-sm" onclick="restartPlayback()">↺ Restart</button>
+        <button class="btn btn-sm" onclick="stepPlayback()">⏭ Step</button>
+      </div>
+      <div class="control-bar-right">
+        <span class="speed-label">Speed:</span>
+        <select id="playback-speed" class="form-control" onchange="updateSpeed()">
+          <option value="2000">⏱ Very Slow (0.5x)</option>
+          <option value="1000" selected>▶ Slow (1x) — Recommended</option>
+          <option value="500">▶▶ Normal (2x)</option>
+          <option value="200">▶▶▶ Fast (5x)</option>
+          <option value="60">⚡ Hyper (16x)</option>
+        </select>
+        <span class="event-counter">Event: <strong id="current-step-num">0</strong> / <span id="total-step-num">0</span></span>
+      </div>
+    </div>
+
+    <!-- Live Channel State Canvas -->
+    <div class="panel" style="margin-bottom:0;">
+      <div class="panel-header">
+        <div class="panel-title">📡 Wireless Medium State &amp; Station Contention</div>
+        <div id="live-status-text" style="font-family:var(--font-mono); font-size:12px; color:var(--text-muted);">
+          Configure parameters and click Run →
+        </div>
+      </div>
+      <div class="panel-body" style="padding:12px; background:#080a0f;">
+        <canvas id="canvas-medium" class="channel-anim-canvas" width="900" height="240"></canvas>
+        <!-- Chip row showing all station states -->
+        <div id="station-status-row" class="station-status-row" style="margin-top:10px;"></div>
+      </div>
+    </div>
+
+    <!-- Event Sequence Timeline -->
+    <div class="panel" style="margin-bottom:0;">
+      <div class="panel-header">
+        <div class="panel-title">📈 Slot-by-Slot Event Timeline</div>
+        <div class="legend-row">
+          <span class="legend-item"><span class="legend-dot idle"></span>Idle Slot</span>
+          <span class="legend-item"><span class="legend-dot success"></span>TX Success</span>
+          <span class="legend-item"><span class="legend-dot collision"></span>Collision</span>
+          <span class="legend-item"><span class="legend-dot drop"></span>Frame Dropped</span>
+        </div>
+      </div>
+      <div class="panel-body" style="padding:12px;">
+        <div class="timeline-track" id="timeline-container">
+          <div style="padding:8px 12px; color:var(--text-dim); font-family:var(--font-mono); font-size:11px;">
+            Run simulation to generate event sequence…
+          </div>
+        </div>
+        <!-- Event Inspector Box -->
+        <div class="event-inspector" id="timeline-inspector">
+          <div style="color:var(--text-dim); font-family:var(--font-mono); font-size:11px;">
+            Click any slot block above, or use Play / Step controls to inspect individual MAC events.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+      <div class="panel" style="margin-bottom:0;">
+        <div class="panel-header">
+          <div class="panel-title">📊 Per-Station Throughput (Mbps)</div>
+        </div>
+        <div class="panel-body" style="padding:10px;">
+          <div id="plot-station-th" style="height:220px;"></div>
+        </div>
+      </div>
+      <div class="panel" style="margin-bottom:0;">
+        <div class="panel-header">
+          <div class="panel-title">📊 Per-Station Collision &amp; Drop Counts</div>
+        </div>
+        <div class="panel-body" style="padding:10px;">
+          <div id="plot-station-events" style="height:220px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+      <div class="panel" style="margin-bottom:0;">
+        <div class="panel-header">
+          <div class="panel-title">📊 Access Delay Histogram</div>
+        </div>
+        <div class="panel-body" style="padding:10px;">
+          <div id="plot-delay-hist" style="height:200px;"></div>
+        </div>
+      </div>
+      <div class="panel" style="margin-bottom:0;">
+        <div class="panel-header">
+          <div class="panel-title">📊 Replication Throughput Stability</div>
+        </div>
+        <div class="panel-body" style="padding:10px;">
+          <div id="plot-rep-ci" style="height:200px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Channel Efficiency Breakdown -->
+    <div class="panel" style="margin-bottom:0;">
+      <div class="panel-header">
+        <div class="panel-title">⏱ Channel Time Efficiency Breakdown</div>
+        <span class="prov-badge prov-simulated">SIMULATED</span>
+      </div>
+      <div class="panel-body">
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px;">
+          <div class="stat-item">
+            <div class="stat-label" style="color:var(--color-success);">Useful Transmission Time</div>
+            <div class="stat-value" id="eff-success">—</div>
+            <div class="form-hint">% of total time carrying payload</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label" style="color:var(--color-danger);">Collision Overhead</div>
+            <div class="stat-value" id="eff-collision">—</div>
+            <div class="form-hint">% of total time wasted in collisions</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label" style="color:var(--text-dim);">Idle Slots</div>
+            <div class="stat-value" id="eff-idle">—</div>
+            <div class="form-hint">% of total time with no activity</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end sim-results-panel -->
+</div><!-- end simulator-layout -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ================================================================
+   WLAN Observatory — CSMA/CA Simulator Frontend Engine
+   ================================================================ */
+let lastSimulationData = null;
+let currentEventIdx    = 0;
+let isPlaying          = false;
+let playbackTimer      = null;
+let playbackDelayMs    = 1000;  // Default: slow (1x)
+
+/* ── Speed Control ─────────────────────────────────────────────── */
+function updateSpeed() {
+  playbackDelayMs = parseInt(document.getElementById('playback-speed').value);
+  if (isPlaying) {
+    clearInterval(playbackTimer);
+    playbackTimer = setInterval(stepAnimation, playbackDelayMs);
+  }
+}
+
+/* ── Run Simulation ────────────────────────────────────────────── */
+async function executeSimulation() {
+  stopPlayback();
+  const btn = document.getElementById('btn-run-sim');
+  btn.disabled  = true;
+  btn.textContent = '⏳ Simulating…';
+
+  // Flash the indicator
+  setLiveBadge('idle', 'COMPUTING…');
+
+  const payload = {
+    n_stations:       parseInt(document.getElementById('sim-stations').value),
+    cw_min:           parseInt(document.getElementById('sim-cwmin').value),
+    cw_max:           parseInt(document.getElementById('sim-cwmax').value),
+    backoff_strategy: document.getElementById('sim-strategy').value,
+    payload_bytes:    parseInt(document.getElementById('sim-payload').value),
+    data_rate_mbps:   parseFloat(document.getElementById('sim-rate').value),
+    rts_cts:          document.getElementById('sim-rts').value === 'true',
+    frame_error_prob: parseFloat(document.getElementById('sim-fer').value),
+    retry_limit:      parseInt(document.getElementById('sim-retries').value),
+    n_replications:   parseInt(document.getElementById('sim-reps').value),
+    traffic_pattern:  document.getElementById('sim-traffic').value,
+    max_events:       1000,
+  };
+
+  try {
+    const res = await API.post('/api/simulation/run', payload);
+    lastSimulationData = res.data;
+    currentEventIdx = 0;
+    renderSimulationResults(res.data);
+    // Auto-start at slow speed so users can immediately see the animation
+    startPlayback();
+  } catch (err) {
+    console.error(err);
+    setLiveBadge('idle', 'ERROR');
+    alert('Simulation error: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '▶ Run DCF Simulation';
+  }
+}
+
+/* ── Render All Results ────────────────────────────────────────── */
+function renderSimulationResults(data) {
+  const agg = data.aggregated;
+
+  // KPI cards
+  document.getElementById('res-th').textContent     = `${agg.throughput_mbps.mean.toFixed(3)} Mbps`;
+  document.getElementById('res-th-ci').textContent  = `95% CI: [${agg.throughput_mbps.ci_lower.toFixed(3)}, ${agg.throughput_mbps.ci_upper.toFixed(3)}]`;
+  document.getElementById('res-col').textContent    = `${(agg.collision_probability.mean * 100).toFixed(2)}%`;
+  document.getElementById('res-col-ci').textContent = `95% CI: [${(agg.collision_probability.ci_lower*100).toFixed(2)}%, ${(agg.collision_probability.ci_upper*100).toFixed(2)}%]`;
+  document.getElementById('res-delay').textContent  = `${agg.mean_access_delay_ms.mean.toFixed(3)} ms`;
+
+  // P95 delay from first replication metrics
+  const rep0 = data.replications[0];
+  document.getElementById('res-p95-delay').textContent = `P95: ${rep0.p95_access_delay_ms !== undefined ? rep0.p95_access_delay_ms.toFixed(3) : '—'} ms`;
+  document.getElementById('res-fairness').textContent  = agg.jains_fairness_index.mean.toFixed(4);
+
+  document.getElementById('total-step-num').textContent = data.sample_timeline.length;
+
+  // Channel efficiency
+  const eff = data.channel_efficiency || {};
+  document.getElementById('eff-success').textContent   = eff.success_pct   !== undefined ? eff.success_pct.toFixed(1)   + ' %' : '—';
+  document.getElementById('eff-collision').textContent = eff.collision_pct !== undefined ? eff.collision_pct.toFixed(1) + ' %' : '—';
+  document.getElementById('eff-idle').textContent      = eff.idle_pct      !== undefined ? eff.idle_pct.toFixed(1)      + ' %' : '—';
+
+  // Build event timeline
+  buildTimeline(data.sample_timeline);
+
+  // Plots
+  plotStationThroughput(data);
+  plotStationEvents(data);
+  plotDelayHistogram(data);
+  plotReplicationCI(data);
+
+  // Draw first frame
+  if (data.sample_timeline.length > 0) {
+    drawLiveFrame(data.sample_timeline[0]);
+  }
+}
+
+/* ── Build Slot Timeline ───────────────────────────────────────── */
+function buildTimeline(timeline) {
+  const track = document.getElementById('timeline-container');
+  track.innerHTML = '';
+  timeline.forEach((evt, idx) => {
+    const slot = document.createElement('div');
+    slot.id = `tslot-${idx}`;
+    const typeLow = evt.type.toLowerCase();
+    slot.className = `timeline-slot ${typeLow}`;
+    const etas = evt.stations && evt.stations.length ? `STA[${evt.stations.join(',')}]` : 'idle';
+    slot.title = `#${idx} ${evt.type} · ${etas} · ${evt.duration_us}µs`;
+    slot.onclick = () => { stopPlayback(); currentEventIdx = idx; drawLiveFrame(evt); };
+    track.appendChild(slot);
+  });
+}
+
+/* ── Canvas Animation ──────────────────────────────────────────── */
+function drawLiveFrame(evt) {
+  const canvas = document.getElementById('canvas-medium');
+  if (!canvas || !lastSimulationData) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width;
+  const H = canvas.height;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const n         = lastSimulationData.config.n_stations;
+  const mediumY   = H - 60;
+  const isColl    = evt.type === 'COLLISION';
+  const isSuccess = evt.type === 'SUCCESS';
+  const isIdle    = evt.type === 'IDLE';
+
+  // ── Background grid lines
+  ctx.strokeStyle = '#161b25';
+  ctx.lineWidth = 1;
+  for (let gx = 0; gx < W; gx += 60) {
+    ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke();
+  }
+
+  // ── Wireless Medium Bus
+  const mediumColor = isSuccess ? '#0ea572' : isColl ? '#e84646' : '#2a3040';
+  ctx.strokeStyle = mediumColor;
+  ctx.lineWidth   = isIdle ? 4 : 7;
+  ctx.beginPath();
+  ctx.moveTo(50, mediumY);
+  ctx.lineTo(W - 50, mediumY);
+  ctx.stroke();
+
+  // Medium glow on active events
+  if (!isIdle) {
+    ctx.shadowBlur  = 20;
+    ctx.shadowColor = mediumColor;
+    ctx.strokeStyle = mediumColor;
+    ctx.lineWidth   = 2;
+    ctx.beginPath();
+    ctx.moveTo(50, mediumY);
+    ctx.lineTo(W - 50, mediumY);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  // Medium label
+  ctx.fillStyle = isIdle ? '#2a3040' : mediumColor;
+  ctx.font = 'bold 10px monospace';
+  ctx.textAlign = 'center';
+  const medLabel = isSuccess ? '▶ TRANSMITTING' : isColl ? '✖ COLLISION DETECTED' : '— MEDIUM IDLE —';
+  ctx.fillText(medLabel, W / 2, mediumY + 20);
+
+  // ── Slot time label
+  ctx.fillStyle = '#3a4555';
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText(`Slot: ${evt.start_time_us ? evt.start_time_us.toFixed(0) : 0}µs   Δt: ${evt.duration_us}µs`, 55, mediumY + 36);
+
+  // ── Stations
+  const spacing  = (W - 140) / Math.max(1, n - 1);
+  const transmitting = new Set(evt.stations || []);
+  const stationY = 68;
+
+  for (let i = 0; i < n; i++) {
+    const x     = 70 + i * spacing;
+    const isTx  = transmitting.has(i);
+    const cw    = evt.counters && evt.counters[i] !== undefined ? evt.counters[i] : '?';
+    const cwNum = parseInt(cw);
+
+    // Node fill & glow
+    const nodeColor = isTx ? (isColl ? '#e84646' : '#0ea572') : '#1a1f2c';
+    const ringColor = isTx ? '#fff' : (cwNum === 0 ? '#fbbf24' : '#2e3a50');
+
+    if (isTx) {
+      ctx.shadowBlur  = 24;
+      ctx.shadowColor = nodeColor;
+    }
+
+    ctx.beginPath();
+    ctx.arc(x, stationY, 22, 0, Math.PI * 2);
+    ctx.fillStyle = nodeColor;
+    ctx.fill();
+    ctx.strokeStyle = ringColor;
+    ctx.lineWidth   = isTx ? 3 : 1.5;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Station ID label
+    ctx.fillStyle  = isTx ? '#fff' : (cwNum === 0 ? '#fbbf24' : '#8b96ab');
+    ctx.font       = `bold 12px monospace`;
+    ctx.textAlign  = 'center';
+    ctx.fillText(`S${i}`, x, stationY + 4);
+
+    // CW counter badge below node
+    const cwColor = cwNum === 0 ? '#fbbf24' : (cwNum <= 3 ? '#f97316' : '#4a5568');
+    ctx.fillStyle = cwNum === 0 ? 'rgba(251,191,36,.2)' : 'rgba(42,48,64,.7)';
+    ctx.beginPath();
+    ctx.roundRect(x - 18, stationY + 28, 36, 17, 3);
+    ctx.fill();
+    ctx.fillStyle = cwColor;
+    ctx.font      = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`CW:${cw}`, x, stationY + 40);
+
+    // Transmission beam (dashed line to medium)
+    if (isTx) {
+      const beamColor = isColl ? 'rgba(232,70,70,0.7)' : 'rgba(14,165,114,0.7)';
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = beamColor;
+      ctx.lineWidth   = isColl ? 2.5 : 3;
+      ctx.beginPath();
+      ctx.moveTo(x, stationY + 24);
+      ctx.lineTo(x, mediumY - 6);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Frame packet visualization
+      const pktY = stationY + 32 + (mediumY - stationY - 56) * 0.35;
+      ctx.fillStyle   = isColl ? 'rgba(232,70,70,.9)' : 'rgba(14,165,114,.9)';
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth   = 1;
+      ctx.beginPath();
+      ctx.roundRect(x - 20, pktY, 40, 18, 4);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 9px sans-serif';
+      ctx.fillText(isColl ? 'COLL' : 'DATA', x, pktY + 12);
+    }
+  }
+
+  // ── Station status chips below canvas
+  const row = document.getElementById('station-status-row');
+  if (row) {
+    row.innerHTML = '';
+    for (let i = 0; i < n; i++) {
+      const isTx = transmitting.has(i);
+      const cw   = evt.counters && evt.counters[i] !== undefined ? evt.counters[i] : '?';
+      const chip = document.createElement('div');
+      chip.className = 'station-chip' + (isTx && isColl ? ' colliding' : isTx ? ' transmitting' : '');
+      chip.innerHTML = `STA ${i} <span class="cw-badge">CW: ${cw}</span>`;
+      row.appendChild(chip);
+    }
+  }
+
+  // ── Update KPI & timeline highlight
+  document.getElementById('current-step-num').textContent = currentEventIdx + 1;
+  const statusEl = document.getElementById('live-status-text');
+  if (isSuccess) {
+    statusEl.innerHTML = `<span style="color:#34d399;">● SUCCESS</span> — Station ${evt.stations.join(',')} transmitted (${evt.duration_us}µs)`;
+  } else if (isColl) {
+    statusEl.innerHTML = `<span style="color:#fc8080;">✖ COLLISION</span> — Stations [${evt.stations.join(', ')}] collided simultaneously`;
+  } else if (evt.type === 'DROP') {
+    statusEl.innerHTML = `<span style="color:#fbbf24;">⚠ DROP</span> — Frame dropped after retry limit exceeded`;
+  } else {
+    statusEl.innerHTML = `<span style="color:#4a5568;">○ IDLE SLOT</span> — No transmissions, all ready counters decrement −1`;
+  }
+
+  // Highlight active slot
+  document.querySelectorAll('.timeline-slot.active').forEach(el => el.classList.remove('active'));
+  const slotEl = document.getElementById(`tslot-${currentEventIdx}`);
+  if (slotEl) {
+    slotEl.classList.add('active');
+    slotEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }
+
+  // Inspector
+  renderInspector(evt, currentEventIdx);
+}
+
+/* ── Event Inspector ───────────────────────────────────────────── */
+function renderInspector(evt, idx) {
+  const box  = document.getElementById('timeline-inspector');
+  const type = evt.type;
+  const badgeCls = type === 'SUCCESS' ? 'success' : type === 'COLLISION' ? 'collision' : 'idle';
+  const stationsStr = evt.stations && evt.stations.length
+    ? `Stations ${evt.stations.map(s => `STA ${s}`).join(', ')}`
+    : 'None (channel idle)';
+
+  const countersHTML = evt.counters
+    ? Object.entries(evt.counters).map(([s, c]) => {
+        const chip = parseInt(c) === 0 ? `<span style="color:#fbbf24; font-weight:700;">${c}</span>` : `<span style="color:#8b96ab;">${c}</span>`;
+        return `STA${s}:${chip}`;
+      }).join('  ')
+    : '—';
+
+  box.innerHTML = `
+    <div class="inspector-row">
+      <span class="inspector-key">Event Index:</span>
+      <span class="inspector-val">#${idx}</span>
+    </div>
+    <div class="inspector-row">
+      <span class="inspector-key">Event Type:</span>
+      <span class="inspector-val">
+        <span class="inspector-badge ${badgeCls}">${type}</span>
+      </span>
+    </div>
+    <div class="inspector-row">
+      <span class="inspector-key">Start Time:</span>
+      <span class="inspector-val">${evt.start_time_us} µs</span>
+    </div>
+    <div class="inspector-row">
+      <span class="inspector-key">Duration:</span>
+      <span class="inspector-val">${evt.duration_us} µs</span>
+    </div>
+    <div class="inspector-row">
+      <span class="inspector-key">Transmitting:</span>
+      <span class="inspector-val ${badgeCls}">${stationsStr}</span>
+    </div>
+    <div class="inspector-row">
+      <span class="inspector-key">Backoff Counters:</span>
+      <span class="inspector-val" style="font-family:var(--font-mono);">${countersHTML}</span>
+    </div>
+    <div class="inspector-row">
+      <span class="inspector-key">Resolution:</span>
+      <span class="inspector-val" style="color:var(--text-dim);">${evt.reason || '—'}</span>
+    </div>
+  `;
+}
+
+/* ── Plots ─────────────────────────────────────────────────────── */
+const PLOTLY_LAYOUT = {
+  paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+  font: { color: '#8b96ab', family: 'monospace', size: 11 },
+  margin: { t: 10, b: 38, l: 44, r: 12 },
+  showlegend: false,
+};
+
+function plotStationThroughput(data) {
+  const rep0 = data.replications[0];
+  const labels = rep0.per_station_throughput_mbps.map((_, i) => `STA ${i}`);
+  Plotly.newPlot('plot-station-th', [{
+    x: labels, y: rep0.per_station_throughput_mbps,
+    type: 'bar',
+    marker: { color: rep0.per_station_throughput_mbps.map(() => 'rgba(14,165,114,0.75)'),
+              line: { color: '#0ea572', width: 1 } },
+    text: rep0.per_station_throughput_mbps.map(v => v.toFixed(3)),
+    textposition: 'outside', textfont: { size: 10 }
+  }], {
+    ...PLOTLY_LAYOUT,
+    yaxis: { title: 'Throughput (Mbps)', gridcolor: '#1e2535', tickfont: { size: 10 } },
+    xaxis: { tickfont: { size: 10 } }
+  }, { responsive: true, displayModeBar: false });
+}
+
+function plotStationEvents(data) {
+  const rep0 = data.replications[0];
+  const labels = rep0.per_station_collisions.map((_, i) => `STA ${i}`);
+  Plotly.newPlot('plot-station-events', [
+    {
+      x: labels, y: rep0.per_station_collisions,
+      name: 'Collisions', type: 'bar',
+      marker: { color: 'rgba(232,70,70,0.7)', line: { color: '#e84646', width: 1 } }
+    },
+    {
+      x: labels, y: rep0.per_station_drops,
+      name: 'Drops', type: 'bar',
+      marker: { color: 'rgba(245,158,11,0.7)', line: { color: '#f59e0b', width: 1 } }
+    }
+  ], {
+    ...PLOTLY_LAYOUT, barmode: 'group', showlegend: true,
+    legend: { orientation: 'h', x: 0, y: 1.12, font: { size: 10 } },
+    yaxis: { title: 'Count', gridcolor: '#1e2535', tickfont: { size: 10 } },
+    xaxis: { tickfont: { size: 10 } }
+  }, { responsive: true, displayModeBar: false });
+}
+
+function plotDelayHistogram(data) {
+  const hist = data.delay_histogram;
+  if (!hist || !hist.bins || hist.bins.length < 2) return;
+  const midpoints = hist.bins.slice(0, -1).map((b, i) => ((b + hist.bins[i+1]) / 2).toFixed(3));
+  Plotly.newPlot('plot-delay-hist', [{
+    x: midpoints, y: hist.counts,
+    type: 'bar',
+    marker: { color: 'rgba(251,191,36,0.7)', line: { color: '#f59e0b', width: 1 } }
+  }], {
+    ...PLOTLY_LAYOUT,
+    xaxis: { title: 'Delay (ms)', gridcolor: '#1e2535', tickfont: { size: 10 } },
+    yaxis: { title: 'Count', gridcolor: '#1e2535', tickfont: { size: 10 } }
+  }, { responsive: true, displayModeBar: false });
+}
+
+function plotReplicationCI(data) {
+  const labels = data.replications.map((_, i) => `Run ${i+1}`);
+  const vals   = data.replications.map(r => r.aggregate_throughput_mbps);
+  const mean   = data.aggregated.throughput_mbps.mean;
+  Plotly.newPlot('plot-rep-ci', [
+    {
+      x: labels, y: vals,
+      type: 'scatter', mode: 'lines+markers',
+      name: 'Per-run Throughput',
+      line: { color: '#60a5fa', width: 2 },
+      marker: { color: '#60a5fa', size: 9 }
+    },
+    {
+      x: labels, y: labels.map(() => mean),
+      type: 'scatter', mode: 'lines',
+      name: '3-run Mean',
+      line: { color: '#fbbf24', width: 2, dash: 'dash' }
+    }
+  ], {
+    ...PLOTLY_LAYOUT, showlegend: true,
+    legend: { orientation: 'h', x: 0, y: 1.12, font: { size: 10 } },
+    yaxis: { title: 'Throughput (Mbps)', gridcolor: '#1e2535', tickfont: { size: 10 } },
+    xaxis: { tickfont: { size: 10 } }
+  }, { responsive: true, displayModeBar: false });
+}
+
+/* ── Playback Engine ───────────────────────────────────────────── */
+function stepAnimation() {
+  if (!lastSimulationData) return;
+  const timeline = lastSimulationData.sample_timeline;
+  if (currentEventIdx >= timeline.length - 1) {
+    stopPlayback();
+    setLiveBadge('complete', 'COMPLETE');
+    return;
+  }
+  currentEventIdx++;
+  drawLiveFrame(timeline[currentEventIdx]);
+}
+
+function startPlayback() {
+  if (!lastSimulationData) return;
+  isPlaying = true;
+  document.getElementById('btn-play-pause').textContent = '⏸ Pause';
+  setLiveBadge('animating', 'LIVE PLAYBACK');
+  clearInterval(playbackTimer);
+  playbackTimer = setInterval(stepAnimation, playbackDelayMs);
+}
+
+function stopPlayback() {
+  isPlaying = false;
+  clearInterval(playbackTimer);
+  const btn = document.getElementById('btn-play-pause');
+  if (btn) btn.textContent = '▶ Play';
+  if (lastSimulationData) setLiveBadge('idle', 'PAUSED');
+}
+
+function togglePlayback() {
+  if (isPlaying) {
+    stopPlayback();
+  } else {
+    if (lastSimulationData && currentEventIdx >= lastSimulationData.sample_timeline.length - 1) {
+      currentEventIdx = 0;
+    }
+    startPlayback();
+  }
+}
+
+function restartPlayback() {
+  currentEventIdx = 0;
+  if (lastSimulationData && lastSimulationData.sample_timeline.length > 0) {
+    drawLiveFrame(lastSimulationData.sample_timeline[0]);
+  }
+  startPlayback();
+}
+
+function stepPlayback() {
+  stopPlayback();
+  stepAnimation();
+}
+
+/* ── Utility ───────────────────────────────────────────────────── */
+function setLiveBadge(cls, label) {
+  const badge = document.getElementById('live-indicator');
+  const txt   = document.getElementById('live-text');
+  if (badge) badge.className = `live-badge ${cls}`;
+  if (txt)   txt.textContent = label;
+}
+
+/* ── Save Experiment ───────────────────────────────────────────── */
+async function saveCurrentSimulation() {
+  if (!lastSimulationData) { alert('Please run a simulation first.'); return; }
+  const n    = lastSimulationData.config.n_stations;
+  const strat = lastSimulationData.config.backoff_strategy;
+  const name = prompt('Name this experiment run:', `exp_N${n}_${strat.toLowerCase()}_${Date.now()}`);
+  if (!name) return;
+  try {
+    await API.post('/api/simulation/experiments/save', {
+      name, config: lastSimulationData.config, aggregated: lastSimulationData.aggregated,
+    });
+    alert(`✓ Experiment "${name}" saved to persistent cache.`);
+  } catch (e) {
+    alert('Save failed: ' + e.message);
+  }
+}
+
+/* ── Polyfill for roundRect (older browsers) ───────────────────── */
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+    this.beginPath();
+    this.moveTo(x + r, y);
+    this.lineTo(x + w - r, y);
+    this.quadraticCurveTo(x + w, y, x + w, y + r);
+    this.lineTo(x + w, y + h - r);
+    this.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    this.lineTo(x + r, y + h);
+    this.quadraticCurveTo(x, y + h, x, y + h - r);
+    this.lineTo(x, y + r);
+    this.quadraticCurveTo(x, y, x + r, y);
+    this.closePath();
+  };
+}
+
+document.addEventListener('DOMContentLoaded', () => { executeSimulation(); });
+</script>
+{% endblock %}

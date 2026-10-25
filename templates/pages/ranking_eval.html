@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}Ranking Evaluation — WLAN Observatory{% endblock %}
+{% block header_title %}Explainable Multi-Criteria Channel Ranking{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 280px 1fr; gap: 16px;">
+  <!-- Left Weight Configuration Panel -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title">
+        <span>Ranking Parameters</span>
+        <span class="prov-badge prov-assumed">ASSUMED</span>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="form-group">
+        <label class="form-label">Dataset Section</label>
+        <select id="rank-section" class="form-control" onchange="loadRankingLinks()">
+          <option value="802_11a">802_11a (5 GHz)</option>
+          <option value="802_11g">802_11g (2.4 GHz)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Link ID</label>
+        <select id="rank-link" class="form-control" onchange="runRankingEvaluation()">
+          <!-- Populated dynamically -->
+        </select>
+      </div>
+
+      <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 12px 0;">
+
+      <h5 style="font-size:11px; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px;">Scoring Weights</h5>
+
+      <div class="form-group">
+        <label class="form-label">SNR Weight (<span id="lbl-w-snr">0.40</span>)</label>
+        <input type="range" id="w_snr" min="0" max="1" step="0.05" value="0.40" class="form-control" oninput="updateWeights()">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Stability Weight (<span id="lbl-w-stab">0.25</span>)</label>
+        <input type="range" id="w_stability" min="0" max="1" step="0.05" value="0.25" class="form-control" oninput="updateWeights()">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Noise Floor Weight (<span id="lbl-w-noise">0.20</span>)</label>
+        <input type="range" id="w_noise" min="0" max="1" step="0.05" value="0.20" class="form-control" oninput="updateWeights()">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Data Rate Weight (<span id="lbl-w-rate">0.15</span>)</label>
+        <input type="range" id="w_rate" min="0" max="1" step="0.05" value="0.15" class="form-control" oninput="updateWeights()">
+      </div>
+
+      <button class="btn btn-primary" style="width:100%; margin-top:8px;" onclick="runRankingEvaluation()">Evaluate Ranking</button>
+    </div>
+  </div>
+
+  <!-- Right Results Workspace -->
+  <div>
+    <!-- Metric Breakdown Chart -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span>Channel Composite Scores & Metric Contribution Breakdown</span>
+          <span class="prov-badge prov-derived">DERIVED</span>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div id="plot-ranking-breakdown" style="height: 280px;"></div>
+      </div>
+    </div>
+
+    <!-- Ranking Table vs Baselines -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span>Ranking Comparison Against Empirical Baselines</span>
+        </div>
+      </div>
+      <div class="panel-body">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Channel</th>
+              <th>Composite Score</th>
+              <th>SNR Contrib</th>
+              <th>Stability Contrib</th>
+              <th>Noise Contrib</th>
+              <th>Median SNR Rank</th>
+              <th>Mean RSS Rank</th>
+              <th>Lowest Noise Rank</th>
+            </tr>
+          </thead>
+          <tbody id="ranking-table-body">
+            <tr><td colspan="9" style="text-align:center;">Evaluating channels...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateWeights() {
+  document.getElementById('lbl-w-snr').textContent = document.getElementById('w_snr').value;
+  document.getElementById('lbl-w-stab').textContent = document.getElementById('w_stability').value;
+  document.getElementById('lbl-w-noise').textContent = document.getElementById('w_noise').value;
+  document.getElementById('lbl-w-rate').textContent = document.getElementById('w_rate').value;
+}
+
+async function loadRankingLinks() {
+  const section = document.getElementById('rank-section').value;
+  const res = await API.get(`/api/analysis/links?section=${section}`);
+  const sel = document.getElementById('rank-link');
+  sel.innerHTML = '';
+  res.links.forEach(l => {
+    const opt = document.createElement('option');
+    opt.value = l;
+    opt.textContent = `Link ${l}`;
+    sel.appendChild(opt);
+  });
+  runRankingEvaluation();
+}
+
+async function runRankingEvaluation() {
+  const section = document.getElementById('rank-section').value;
+  const linkId = parseInt(document.getElementById('rank-link').value || 0);
+
+  const rawWeights = {
+    w_snr: parseFloat(document.getElementById('w_snr').value),
+    w_stability: parseFloat(document.getElementById('w_stability').value),
+    w_noise: parseFloat(document.getElementById('w_noise').value),
+    w_rate: parseFloat(document.getElementById('w_rate').value),
+  };
+
+  // Normalize weights to sum to 1.0
+  const sumW = rawWeights.w_snr + rawWeights.w_stability + rawWeights.w_noise + rawWeights.w_rate || 1.0;
+  const weights = {
+    w_snr: rawWeights.w_snr / sumW,
+    w_stability: rawWeights.w_stability / sumW,
+    w_noise: rawWeights.w_noise / sumW,
+    w_rate: rawWeights.w_rate / sumW,
+  };
+
+  try {
+    const res = await API.post('/api/ranking/evaluate', {
+      section: section,
+      link_id: linkId,
+      weights: weights,
+    });
+
+    const rows = res.rankings;
+    const tbody = document.getElementById('ranking-table-body');
+    if (!rows || rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">No eligible channels found.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td class="font-mono"><strong>#${r.rank}</strong></td>
+        <td class="font-mono">Ch ${r.channel}</td>
+        <td class="font-mono" style="color:#38bdf8; font-weight:700;">${r.score.toFixed(2)}</td>
+        <td class="font-mono">${r.breakdown.snr_contrib.toFixed(1)}</td>
+        <td class="font-mono">${r.breakdown.stability_contrib.toFixed(1)}</td>
+        <td class="font-mono">${r.breakdown.noise_contrib.toFixed(1)}</td>
+        <td class="font-mono">#${r.baseline_snr_rank}</td>
+        <td class="font-mono">#${r.baseline_rss_rank}</td>
+        <td class="font-mono">#${r.baseline_noise_rank}</td>
+      </tr>
+    `).join('');
+
+    // Plot breakdown chart
+    const chNames = rows.map(r => `Ch ${r.channel}`);
+    const snrC = rows.map(r => r.breakdown.snr_contrib);
+    const stabC = rows.map(r => r.breakdown.stability_contrib);
+    const noiseC = rows.map(r => r.breakdown.noise_contrib);
+    const rateC = rows.map(r => r.breakdown.rate_contrib);
+
+    Plotly.newPlot('plot-ranking-breakdown', [
+      { x: chNames, y: snrC, name: 'SNR', type: 'bar', marker: { color: '#0077cc' } },
+      { x: chNames, y: stabC, name: 'Stability', type: 'bar', marker: { color: '#10b981' } },
+      { x: chNames, y: noiseC, name: 'Noise Floor', type: 'bar', marker: { color: '#6366f1' } },
+      { x: chNames, y: rateC, name: 'Data Rate', type: 'bar', marker: { color: '#f59e0b' } },
+    ], {
+      barmode: 'stack',
+      paper_bgcolor: 'transparent',
+      plot_bgcolor: 'transparent',
+      font: { color: '#98a2b3', family: 'sans-serif' },
+      margin: { t: 20, b: 40, l: 40, r: 20 },
+      yaxis: { title: 'Composite Score (0-100)', gridcolor: '#2e3440' },
+      legend: { orientation: 'h', y: 1.15 }
+    }, { responsive: true, displayModeBar: false });
+
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', loadRankingLinks);
+</script>
+{% endblock %}

@@ -1,0 +1,153 @@
+# -----------------------------------------------------------------------------
+# Python bytecode & caches
+# -----------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# -----------------------------------------------------------------------------
+# Virtual environments
+# -----------------------------------------------------------------------------
+.venv/
+venv/
+env/
+ENV/
+.Python
+
+# -----------------------------------------------------------------------------
+# Environment & secrets
+# -----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.secret
+secrets.toml
+
+# -----------------------------------------------------------------------------
+# Dataset directories  (large / proprietary raw data — never commit)
+# dataset/   → 1 496 CRAWDAD CSV trace files
+# data/raw/  → symlink / copy target for raw data
+# data/interim/ → intermediate pipeline outputs
+# data/processed/ → final feature tables, parquet files
+# data/manifests/ → auto-generated; reproducible from scripts
+# -----------------------------------------------------------------------------
+dataset/
+data/raw/*
+data/interim/*
+data/processed/*
+data/manifests/*
+
+# Keep directory placeholders so `git clone` recreates the folder skeleton
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+!data/manifests/.gitkeep
+
+# -----------------------------------------------------------------------------
+# Binary / large data formats
+# -----------------------------------------------------------------------------
+*.parquet
+*.feather
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+*.npy
+*.npz
+*.csv.gz
+*.csv.bz2
+
+# -----------------------------------------------------------------------------
+# Flask / web server artefacts
+# -----------------------------------------------------------------------------
+instance/
+*.db
+*.sqlite3
+flask_session/
+
+# -----------------------------------------------------------------------------
+# Logs
+# -----------------------------------------------------------------------------
+*.log
+logs/
+*.log.*
+
+# -----------------------------------------------------------------------------
+# Test & coverage artefacts
+# -----------------------------------------------------------------------------
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.xml          # JUnit/coverage XML output
+
+# -----------------------------------------------------------------------------
+# Build & distribution
+# -----------------------------------------------------------------------------
+dist/
+build/
+*.egg-info/
+*.egg
+MANIFEST
+.eggs/
+
+# -----------------------------------------------------------------------------
+# Jupyter / IPython (if notebooks are ever added)
+# -----------------------------------------------------------------------------
+.ipynb_checkpoints/
+*.ipynb
+
+# -----------------------------------------------------------------------------
+# IDE & editor files
+# -----------------------------------------------------------------------------
+# VS Code
+.vscode/
+*.code-workspace
+
+# PyCharm / JetBrains
+.idea/
+*.iml
+
+# Vim / Emacs swap
+*.swp
+*.swo
+*~
+\#*\#
+.\#*
+
+# macOS
+.DS_Store
+.AppleDouble
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# -----------------------------------------------------------------------------
+# Typing / linting caches
+# -----------------------------------------------------------------------------
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+
+# -----------------------------------------------------------------------------
+# Profiling output
+# -----------------------------------------------------------------------------
+*.prof
+*.lprof
+
+# -----------------------------------------------------------------------------
+# Temporary / scratch files
+# -----------------------------------------------------------------------------
+tmp/
+temp/
+scratch/
+*.tmp
+*.bak
+*.orig

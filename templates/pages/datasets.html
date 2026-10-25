@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}Datasets & Validation — WLAN Observatory{% endblock %}
+{% block header_title %}Dataset Catalog & Schema Validation{% endblock %}
+
+{% block content %}
+<div class="panel">
+  <div class="panel-header">
+    <div class="panel-title">
+      <span>Section Integrity & Verification Audits</span>
+      <span class="prov-badge prov-measured">MEASURED</span>
+    </div>
+    <button class="btn btn-sm" onclick="loadAuditData()">Refresh Audit</button>
+  </div>
+  <div class="panel-body">
+    <div id="audit-cards-container" style="display: flex; flex-direction: column; gap: 14px;">
+      <div style="color: var(--text-muted);">Loading section integrity audits...</div>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-header">
+    <div class="panel-title">
+      <span>Fixed 8-Column Trace Schema Definition</span>
+    </div>
+  </div>
+  <div class="panel-body">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Col #</th>
+          <th>Field Name</th>
+          <th>Physical Unit</th>
+          <th>Provenance</th>
+          <th>Scientific Semantics & Constraints</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="font-mono">1</td>
+          <td class="font-mono">timestamp</td>
+          <td>Microseconds (µs)</td>
+          <td><span class="prov-badge prov-measured">MEASURED</span></td>
+          <td>Monotonically increasing capture timestamp. Verified delta ~ 2.2 ms.</td>
+        </tr>
+        <tr>
+          <td class="font-mono">2</td>
+          <td class="font-mono">packet_type</td>
+          <td>Categorical</td>
+          <td><span class="prov-badge prov-measured">MEASURED</span></td>
+          <td>Frame classification ("Data" across all verified rows).</td>
+        </tr>
+        <tr>
+          <td class="font-mono">3</td>
+          <td class="font-mono">channel</td>
+          <td>Integer</td>
+          <td><span class="prov-badge prov-measured">MEASURED</span></td>
+          <td>Operating IEEE 802.11 channel frequency identifier.</td>
+        </tr>
+        <tr>
+          <td class="font-mono">4</td>
+          <td class="font-mono">snr</td>
+          <td>dB</td>
+          <td><span class="prov-badge prov-derived">DERIVED</span></td>
+          <td>Signal-to-Noise Ratio. Verified mathematical identity: SNR = RSS - Noise.</td>
+        </tr>
+        <tr>
+          <td class="font-mono">5</td>
+          <td class="font-mono">rss</td>
+          <td>dBm</td>
+          <td><span class="prov-badge prov-measured">MEASURED</span></td>
+          <td>Received Signal Strength indicator measured at physical NIC receiver.</td>
+        </tr>
+        <tr>
+          <td class="font-mono">6</td>
+          <td class="font-mono">noise</td>
+          <td>dBm</td>
+          <td><span class="prov-badge prov-measured">MEASURED</span></td>
+          <td>Receiver background noise floor.</td>
+        </tr>
+        <tr>
+          <td class="font-mono">7</td>
+          <td class="font-mono">data_rate</td>
+          <td>Mbps</td>
+          <td><span class="prov-badge prov-measured">MEASURED</span></td>
+          <td>Fixed modulation rate (6.0 Mbps for 802.11a, 11.0 Mbps for 802.11g).</td>
+        </tr>
+        <tr>
+          <td class="font-mono">8</td>
+          <td class="font-mono">seq</td>
+          <td>12-bit Counter</td>
+          <td><span class="prov-badge prov-measured">MEASURED</span></td>
+          <td>MAC Layer sequence number (modulo 4096). Discontinuities indicate candidate drops.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadAuditData() {
+  const container = document.getElementById('audit-cards-container');
+  try {
+    const res = await API.get('/api/datasets/validation');
+    const data = res.data;
+    container.innerHTML = '';
+
+    Object.keys(data).forEach(sec => {
+      const item = data[sec];
+      const card = document.createElement('div');
+      card.style.backgroundColor = 'var(--bg-secondary)';
+      card.style.border = '1px solid var(--border-color)';
+      card.style.borderRadius = '4px';
+      card.style.padding = '12px 14px';
+
+      let checksHtml = item.checks.map(c => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding: 6px 0; border-bottom: 1px solid var(--border-subtle); font-size:12px;">
+          <div>
+            <strong>${c.name}</strong>: <span style="color:var(--text-muted);">${c.detail}</span>
+          </div>
+          <span class="prov-badge ${c.status === 'PASS' ? 'prov-measured' : 'prov-assumed'}">${c.status}</span>
+        </div>
+      `).join('');
+
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+          <h4 style="font-size:14px; color:var(--text-main); font-family:var(--font-mono);">${sec}</h4>
+          <div>
+            <span style="font-size:11px; color:var(--text-muted); margin-right:8px;">Files: ${item.file_count} / ${item.expected_count}</span>
+            <span class="prov-badge prov-measured">${item.status}</span>
+          </div>
+        </div>
+        <div>${checksHtml}</div>
+      `;
+      container.appendChild(card);
+    });
+  } catch (err) {
+    container.innerHTML = '<div style="color:var(--color-danger)">Failed to load dataset audits.</div>';
+  }
+}
+document.addEventListener('DOMContentLoaded', loadAuditData);
+</script>
+{% endblock %}

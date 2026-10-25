@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Overview — WLAN Observatory{% endblock %}
+{% block header_title %}Operational Overview{% endblock %}
+
+{% block content %}
+<div class="metrics-row" id="overview-metrics">
+  <div class="metric-card">
+    <div class="title-row">
+      <span>Total Trace Files</span>
+      <span class="prov-badge prov-measured">MEASURED</span>
+    </div>
+    <div class="value" id="val-total-files">1,496</div>
+    <div class="subtext">100% manifest verified</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="title-row">
+      <span>Sampled Records</span>
+      <span class="prov-badge prov-derived">DERIVED</span>
+    </div>
+    <div class="value" id="val-total-records">1,057,366</div>
+    <div class="subtext">Parsed across 1,240 channels</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="title-row">
+      <span>Dataset Sections</span>
+      <span class="prov-badge prov-measured">MEASURED</span>
+    </div>
+    <div class="value">3 Bands</div>
+    <div class="subtext">802_11a (5GHz), 802_11g (2.4GHz), interface</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="title-row">
+      <span>Simulator Baseline</span>
+      <span class="prov-badge prov-simulated">SIMULATED</span>
+    </div>
+    <div class="value">Bianchi 2000</div>
+    <div class="subtext">Validated Saturated DCF</div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-header">
+    <div class="panel-title">
+      <span>Dataset Sections — Integrity Status</span>
+    </div>
+  </div>
+  <div class="panel-body">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Section</th>
+          <th>Observed / Expected Files</th>
+          <th>Integrity Status</th>
+          <th>Timestamp Unit</th>
+          <th>Physical Band</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>802_11a</strong></td>
+          <td class="font-mono">1,014 / 1,014</td>
+          <td><span class="prov-badge prov-measured">VERIFIED</span></td>
+          <td class="font-mono">Microseconds (µs)</td>
+          <td>5 GHz (13 Orthogonal Channels)</td>
+          <td><a href="/channel-analysis?section=802_11a" class="btn btn-sm">Explore</a></td>
+        </tr>
+        <tr>
+          <td><strong>802_11g</strong></td>
+          <td class="font-mono">162 / 162</td>
+          <td><span class="prov-badge prov-measured">VERIFIED</span></td>
+          <td class="font-mono">Microseconds (µs)</td>
+          <td>2.4 GHz (Channels 1, 6, 11)</td>
+          <td><a href="/channel-analysis?section=802_11g" class="btn btn-sm">Explore</a></td>
+        </tr>
+        <tr>
+          <td><strong>interface</strong></td>
+          <td class="font-mono">320 / 320</td>
+          <td><span class="prov-badge prov-measured">VERIFIED</span></td>
+          <td class="font-mono">Microseconds (µs)</td>
+          <td>Channel 64 (16 Antenna Pairs)</td>
+          <td><a href="/channel-analysis?section=interface" class="btn btn-sm">Explore</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-header">
+    <div class="panel-title">
+      <span>Quick Analytical Workbenches</span>
+    </div>
+  </div>
+  <div class="panel-body" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">
+    <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 4px; padding: 14px;">
+      <h4 style="margin-bottom: 6px;">Explainable Channel Ranking</h4>
+      <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 12px;">
+        Rank eligible channels per link using normalized physical criteria (SNR, RSS, Noise, Stability).
+      </p>
+      <a href="/ranking-eval" class="btn btn-primary btn-sm">Launch Ranking Engine</a>
+    </div>
+
+    <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 4px; padding: 14px;">
+      <h4 style="margin-bottom: 6px;">CSMA/CA Simulation Workbench</h4>
+      <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 12px;">
+        Interactive discrete-event DCF simulator with live slot countdown timeline and contention backoffs.
+      </p>
+      <a href="/simulator" class="btn btn-primary btn-sm">Launch Simulator</a>
+    </div>
+
+    <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 4px; padding: 14px;">
+      <h4 style="margin-bottom: 6px;">Bianchi Model Validation</h4>
+      <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 12px;">
+        Empirical comparison between numerical Markov chain analysis and Monte Carlo simulated throughput.
+      </p>
+      <a href="/validation" class="btn btn-primary btn-sm">Inspect Validation</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

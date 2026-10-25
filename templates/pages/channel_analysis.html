@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}Channel Analysis — WLAN Observatory{% endblock %}
+{% block header_title %}Empirical Channel Quality Analysis{% endblock %}
+
+{% block content %}
+<!-- Filter Toolbar -->
+<div class="panel">
+  <div class="panel-body" style="display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap;">
+    <div class="form-group" style="margin-bottom:0; min-width: 140px;">
+      <label class="form-label">Dataset Section</label>
+      <select id="sel-section" class="form-control" onchange="onSectionChange()">
+        <option value="802_11a">802_11a (5 GHz)</option>
+        <option value="802_11g">802_11g (2.4 GHz)</option>
+        <option value="interface">interface (Ch 64)</option>
+      </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom:0; min-width: 120px;">
+      <label class="form-label">Mesh Link ID</label>
+      <select id="sel-link" class="form-control" onchange="loadChannelData()">
+        <!-- Filled dynamically -->
+      </select>
+    </div>
+
+    <button class="btn btn-primary" onclick="loadChannelData()">Apply Filters</button>
+  </div>
+</div>
+
+<!-- Charts Row -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+  <div class="panel" style="margin-bottom:0;">
+    <div class="panel-header">
+      <div class="panel-title">
+        <span>SNR & RSS Distributions across Channels</span>
+        <span class="prov-badge prov-measured">MEASURED</span>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div id="plot-snr-dist" style="height: 320px;"></div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:0;">
+    <div class="panel-header">
+      <div class="panel-title">
+        <span>Noise Floor vs Sequence Gaps</span>
+        <span class="prov-badge prov-derived">DERIVED</span>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div id="plot-noise-dist" style="height: 320px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Tabular Summaries -->
+<div class="panel">
+  <div class="panel-header">
+    <div class="panel-title">
+      <span>Per-Channel Empirical Summary Table</span>
+      <span class="prov-badge prov-derived">DERIVED</span>
+    </div>
+  </div>
+  <div class="panel-body">
+    <table class="data-table" id="channels-table">
+      <thead>
+        <tr>
+          <th>Channel</th>
+          <th>Sampled Frames</th>
+          <th>Mean SNR (dB)</th>
+          <th>SNR Std Dev</th>
+          <th>Mean RSS (dBm)</th>
+          <th>Noise Floor (dBm)</th>
+          <th>Data Rate (Mbps)</th>
+          <th>Seq Gaps (Count)</th>
+          <th>Duration (s)</th>
+        </tr>
+      </thead>
+      <tbody id="channels-table-body">
+        <tr><td colspan="9" style="text-align:center; color:var(--text-muted);">Select filters and click Apply...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function onSectionChange() {
+  const section = document.getElementById('sel-section').value;
+  try {
+    const res = await API.get(`/api/analysis/links?section=${section}`);
+    const linkSel = document.getElementById('sel-link');
+    linkSel.innerHTML = '';
+    res.links.forEach(l => {
+      const opt = document.createElement('option');
+      opt.value = l;
+      opt.textContent = `Link ${l}`;
+      linkSel.appendChild(opt);
+    });
+    loadChannelData();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function loadChannelData() {
+  const section = document.getElementById('sel-section').value;
+  const linkId = document.getElementById('sel-link').value;
+  if (!linkId) return;
+
+  const tbody = document.getElementById('channels-table-body');
+  tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Loading empirical records...</td></tr>';
+
+  try {
+    const res = await API.get(`/api/analysis/summaries?section=${section}&link_id=${linkId}`);
+    const rows = res.data;
+
+    if (!rows || rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:var(--text-muted);">No records found for this link.</td></tr>';
+      return;
+    }
+
+    // Populate table
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td class="font-mono"><strong>Ch ${r.channel}</strong></td>
+        <td class="font-mono">${r.record_count.toLocaleString()}</td>
+        <td class="font-mono" style="color:#38bdf8">${r.snr_mean.toFixed(2)}</td>
+        <td class="font-mono">${r.snr_std.toFixed(2)}</td>
+        <td class="font-mono">${r.rss_mean.toFixed(2)}</td>
+        <td class="font-mono">${r.noise_mean.toFixed(2)}</td>
+        <td class="font-mono">${r.data_rate_mode}</td>
+        <td class="font-mono" style="color:#fbbf24">${r.seq_gap_count}</td>
+        <td class="font-mono">${(r.duration_us / 1e6).toFixed(2)}s</td>
+      </tr>
+    `).join('');
+
+    // Plot SNR & RSS
+    const channels = rows.map(r => `Ch ${r.channel}`);
+    const snrs = rows.map(r => r.snr_mean);
+    const rsses = rows.map(r => r.rss_mean);
+    const noises = rows.map(r => r.noise_mean);
+    const gaps = rows.map(r => r.seq_gap_count);
+
+    Plotly.newPlot('plot-snr-dist', [
+      {
+        x: channels,
+        y: snrs,
+        name: 'SNR (dB)',
+        type: 'bar',
+        marker: { color: '#0077cc' }
+      },
+      {
+        x: channels,
+        y: rsses,
+        name: 'RSS (dBm)',
+        type: 'scatter',
+        mode: 'lines+markers',
+        yaxis: 'y2',
+        marker: { color: '#34d399' }
+      }
+    ], {
+      paper_bgcolor: 'transparent',
+      plot_bgcolor: 'transparent',
+      font: { color: '#98a2b3', family: 'sans-serif' },
+      margin: { t: 30, b: 40, l: 40, r: 40 },
+      yaxis: { title: 'SNR (dB)', gridcolor: '#2e3440' },
+      yaxis2: { title: 'RSS (dBm)', overlaying: 'y', side: 'right' },
+      legend: { orientation: 'h', y: 1.1 }
+    }, { responsive: true, displayModeBar: false });
+
+    Plotly.newPlot('plot-noise-dist', [
+      {
+        x: channels,
+        y: noises,
+        name: 'Noise Floor (dBm)',
+        type: 'bar',
+        marker: { color: '#6366f1' }
+      },
+      {
+        x: channels,
+        y: gaps,
+        name: 'Seq Gaps',
+        type: 'scatter',
+        mode: 'lines+markers',
+        yaxis: 'y2',
+        marker: { color: '#f59e0b' }
+      }
+    ], {
+      paper_bgcolor: 'transparent',
+      plot_bgcolor: 'transparent',
+      font: { color: '#98a2b3', family: 'sans-serif' },
+      margin: { t: 30, b: 40, l: 40, r: 40 },
+      yaxis: { title: 'Noise Floor (dBm)', gridcolor: '#2e3440' },
+      yaxis2: { title: 'Candidate Gaps', overlaying: 'y', side: 'right' },
+      legend: { orientation: 'h', y: 1.1 }
+    }, { responsive: true, displayModeBar: false });
+
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', onSectionChange);
+</script>
+{% endblock %}

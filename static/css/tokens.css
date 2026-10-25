@@ -1,0 +1,56 @@
+:root {
+  --bg-primary:        #0e1014;
+  --bg-secondary:      #161920;
+  --bg-tertiary:       #1e2229;
+  --bg-card:           #141720;
+  --bg-hover:          #1c2030;
+  --border-color:      #2a3040;
+  --border-subtle:     #1f2535;
+  --text-main:         #e8edf5;
+  --text-muted:        #8b96ab;
+  --text-dim:          #5a6680;
+
+  --accent-blue:       #1a73e8;
+  --accent-blue-hover: #2d84f7;
+  --accent-blue-dim:   rgba(26, 115, 232, 0.12);
+  --accent-blue-glow:  rgba(26, 115, 232, 0.25);
+
+  --color-success:     #0ea572;
+  --color-success-dim: rgba(14, 165, 114, 0.15);
+  --color-warning:     #f59e0b;
+  --color-warning-dim: rgba(245, 158, 11, 0.12);
+  --color-danger:      #e84646;
+  --color-danger-dim:  rgba(232, 70, 70, 0.15);
+  --color-info:        #06b6d4;
+  --color-purple:      #a855f7;
+  --color-purple-dim:  rgba(168, 85, 247, 0.15);
+
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  --sidebar-width:  258px;
+  --header-height:  54px;
+  --radius-sm:      3px;
+  --radius-md:      6px;
+  --radius-lg:      10px;
+  --shadow-sm:      0 1px 3px rgba(0,0,0,0.35);
+  --shadow-md:      0 4px 16px rgba(0,0,0,0.45);
+  --transition:     0.18s ease;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.6;
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}

@@ -1,0 +1,55 @@
+# Single source of truth for provenance classification.
+# src/common/provenance.py::tag() refuses any metric not registered here.
+
+provenance_classes:
+  MEASURED:  "Read directly from a trace field without transformation."
+  DERIVED:   "Computed from MEASURED fields (aggregation, statistics, ratios)."
+  ASSUMED:   "Chosen by the analyst; not supported by the dataset."
+  SIMULATED: "Produced by the CSMA/CA simulator; not observed."
+
+constants:
+  # From CRAWDAD readme: Subramanian et al., PAM 2009.
+  tx_power_dbm: 15
+  data_rate_mbps_802_11a: 6.0
+  data_rate_mbps_802_11g: 11.0
+  chipset: "Atheros"
+  source: "CRAWDAD: Understanding Channel and Interface Heterogeneity in Multi-Radio Multi-Channel Wireless Networks"
+
+metrics:
+  snr_mean:
+    class: DERIVED
+    source: "mean(timestamp|snr) per channel per window"
+    notes: "snr column ≈ rss − noise; recorded as DERIVED accordingly."
+  snr_std:
+    class: DERIVED
+    source: "std(snr) per channel per window"
+  rss_mean:
+    class: MEASURED
+    source: "mean(rss)"
+  noise_mean:
+    class: MEASURED
+    source: "mean(noise)"
+  data_rate_mode:
+    class: MEASURED
+    source: "mode(data_rate); constant per section per readme (6 vs 11 Mbps)"
+  packet_count_per_window:
+    class: DERIVED
+    source: "row count per time window"
+    notes: "NOT channel utilization. NOT airtime. NOT load. Must never be labelled as such."
+  seq_gap_count:
+    class: DERIVED
+    source: "wrap-aware gaps in 12-bit seq counter"
+    assumptions:
+      - "no retries appear in this capture"
+      - "single transmitter/receiver pair per file"
+      - "no channel switch mid-capture"
+  frame_error_probability:
+    class: ASSUMED
+    source: "simulator default; trace-derived only after seq semantics are validated per FIELD_SEMANTICS.md"
+  composite_rank_score:
+    class: DERIVED
+    source: "weighted normalised criteria; weights listed separately and marked ASSUMED"
+  saturation_throughput:
+    class: SIMULATED
+  collision_rate:
+    class: SIMULATED

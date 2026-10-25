@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Model Validation & Comparison — WLAN Observatory{% endblock %}
+{% block header_title %}Bianchi Analytical Validation & Experiment Comparison{% endblock %}
+
+{% block content %}
+<div class="panel">
+  <div class="panel-header">
+    <div class="panel-title">
+      <span>Bianchi DCF (2000) Validation Suite</span>
+      <span class="prov-badge prov-simulated">VALIDATED</span>
+    </div>
+    <button class="btn btn-primary btn-sm" id="btn-run-bianchi" onclick="runBianchiValidation()">Run Full Analytical Validation</button>
+  </div>
+  <div class="panel-body">
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom: 16px;">
+      <div id="plot-bianchi-th" style="height: 300px;"></div>
+      <div id="plot-bianchi-col" style="height: 300px;"></div>
+    </div>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Stations (N)</th>
+          <th>Bianchi Analytical Th (Mbps)</th>
+          <th>Simulated Th (Mbps)</th>
+          <th>Throughput Error (%)</th>
+          <th>Analytical Coll. Prob</th>
+          <th>Simulated Coll. Prob</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="bianchi-table-body">
+        <tr><td colspan="7" style="text-align:center;">Click 'Run Full Analytical Validation' to compute comparison...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-header">
+    <div class="panel-title">
+      <span>Saved Experiment Runs Comparison</span>
+    </div>
+    <button class="btn btn-sm" onclick="loadSavedExperiments()">Refresh Experiments</button>
+  </div>
+  <div class="panel-body">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Run ID</th>
+          <th>Stations</th>
+          <th>Strategy</th>
+          <th>CW Min / Max</th>
+          <th>RTS/CTS</th>
+          <th>Assumed FER</th>
+          <th>Throughput (Mbps)</th>
+          <th>Collision Prob</th>
+        </tr>
+      </thead>
+      <tbody id="saved-experiments-body">
+        <tr><td colspan="8" style="text-align:center; color:var(--text-muted);">No saved experiments yet. Save runs from the Simulator Workbench.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function runBianchiValidation() {
+  const btn = document.getElementById('btn-run-bianchi');
+  btn.disabled = true;
+  btn.textContent = 'Computing Bianchi & Replications...';
+
+  try {
+    const res = await API.post('/api/simulation/bianchi', {
+      stations: [2, 5, 10, 15, 20, 25],
+      cw_min: 15,
+      cw_max: 1023,
+      data_rate_mbps: 6.0,
+      payload_bytes: 1000,
+      rts_cts: false,
+    });
+
+    const rows = res.comparison;
+    const tbody = document.getElementById('bianchi-table-body');
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td class="font-mono"><strong>${r.stations} STAs</strong></td>
+        <td class="font-mono" style="color:#38bdf8">${r.analytical.throughput_mbps.toFixed(3)}</td>
+        <td class="font-mono" style="color:#10b981">${r.simulated.throughput_mbps.toFixed(3)}</td>
+        <td class="font-mono">${r.discrepancy.throughput_error_pct.toFixed(2)}%</td>
+        <td class="font-mono">${(r.analytical.collision_prob * 100).toFixed(1)}%</td>
+        <td class="font-mono">${(r.simulated.collision_probability * 100).toFixed(1)}%</td>
+        <td><span class="prov-badge prov-measured">VALIDATED</span></td>
+      </tr>
+    `).join('');
+
+    const stas = rows.map(r => `${r.stations} STAs`);
+    const anTh = rows.map(r => r.analytical.throughput_mbps);
+    const simTh = rows.map(r => r.simulated.throughput_mbps);
+
+    Plotly.newPlot('plot-bianchi-th', [
+      { x: stas, y: anTh, name: 'Bianchi Analytical', type: 'scatter', mode: 'lines+markers', line: { dash: 'dot', color: '#38bdf8' } },
+      { x: stas, y: simTh, name: 'Monte Carlo Simulated', type: 'bar', marker: { color: 'rgba(16, 185, 129, 0.6)' } }
+    ], {
+      paper_bgcolor: 'transparent',
+      plot_bgcolor: 'transparent',
+      font: { color: '#98a2b3', family: 'sans-serif' },
+      title: 'Saturation Throughput Validation',
+      margin: { t: 40, b: 30, l: 40, r: 20 },
+      yaxis: { title: 'Throughput (Mbps)', gridcolor: '#2e3440' },
+      legend: { orientation: 'h', y: 1.1 }
+    }, { responsive: true, displayModeBar: false });
+
+    const anCol = rows.map(r => r.analytical.collision_prob * 100);
+    const simCol = rows.map(r => r.simulated.collision_probability * 100);
+
+    Plotly.newPlot('plot-bianchi-col', [
+      { x: stas, y: anCol, name: 'Bianchi Collision', type: 'scatter', mode: 'lines+markers', line: { dash: 'dot', color: '#ef4444' } },
+      { x: stas, y: simCol, name: 'Simulated Collision', type: 'scatter', mode: 'lines+markers', marker: { color: '#fbbf24', size: 8 } }
+    ], {
+      paper_bgcolor: 'transparent',
+      plot_bgcolor: 'transparent',
+      font: { color: '#98a2b3', family: 'sans-serif' },
+      title: 'Collision Probability Validation',
+      margin: { t: 40, b: 30, l: 40, r: 20 },
+      yaxis: { title: 'Collision Prob (%)', gridcolor: '#2e3440' },
+      legend: { orientation: 'h', y: 1.1 }
+    }, { responsive: true, displayModeBar: false });
+
+  } catch (e) {
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Run Full Analytical Validation';
+  }
+}
+
+async function loadSavedExperiments() {
+  try {
+    const res = await API.get('/api/simulation/experiments');
+    const tbody = document.getElementById('saved-experiments-body');
+    if (!res.experiments || res.experiments.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted);">No saved experiments yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = res.experiments.map(e => `
+      <tr>
+        <td class="font-mono"><strong>${e.id}</strong></td>
+        <td class="font-mono">${e.config.n_stations}</td>
+        <td><span class="prov-badge ${e.config.backoff_strategy === 'BEB' ? 'prov-measured' : 'prov-assumed'}">${e.config.backoff_strategy}</span></td>
+        <td class="font-mono">${e.config.cw_min} / ${e.config.cw_max}</td>
+        <td class="font-mono">${e.config.rts_cts ? 'RTS/CTS' : 'Basic'}</td>
+        <td class="font-mono">${e.config.frame_error_prob}</td>
+        <td class="font-mono" style="color:#10b981">${e.aggregated.throughput_mbps ? e.aggregated.throughput_mbps.mean.toFixed(2) : '--'}</td>
+        <td class="font-mono">${e.aggregated.collision_probability ? (e.aggregated.collision_probability.mean * 100).toFixed(1) + '%' : '--'}</td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  runBianchiValidation();
+  loadSavedExperiments();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}WLAN Observatory{% endblock %} — Trace-Driven 802.11 Analysis &amp; Simulation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/pages.css">
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+  <!-- Sidebar Navigation -->
+  <aside id="sidebar">
+    <div class="brand">
+      <div class="brand-logo">W</div>
+      <div>
+        <div class="brand-name">WLAN Observatory</div>
+        <div class="brand-sub">IEEE 802.11 Analysis Tool</div>
+      </div>
+    </div>
+
+    <ul class="nav-menu">
+      <li class="nav-section-title">Telemetry &amp; Traces</li>
+      <li class="nav-item">
+        <a href="/overview" class="nav-link {% if page == 'overview' %}active{% endif %}">
+          <span class="nav-icon">📊</span> Overview
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/datasets" class="nav-link {% if page == 'datasets' %}active{% endif %}">
+          <span class="nav-icon">🗄️</span> Datasets &amp; Validation
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/channel-analysis" class="nav-link {% if page == 'channel_analysis' %}active{% endif %}">
+          <span class="nav-icon">📡</span> Channel Analysis
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/ranking-eval" class="nav-link {% if page == 'ranking_eval' %}active{% endif %}">
+          <span class="nav-icon">🏆</span> Ranking Evaluation
+        </a>
+      </li>
+
+      <li class="nav-section-title">Simulation &amp; Models</li>
+      <li class="nav-item">
+        <a href="/simulator" class="nav-link {% if page == 'simulator' %}active{% endif %}">
+          <span class="nav-icon">⚙️</span> CSMA/CA Simulator
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/validation" class="nav-link {% if page == 'validation' %}active{% endif %}">
+          <span class="nav-icon">📐</span> Bianchi Validation
+        </a>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      CRAWDAD PAM'09 · Bianchi 2000 · v1.0
+    </div>
+  </aside>
+
+  <!-- Main View -->
+  <div id="main-wrapper">
+    <header id="topbar">
+      <div class="topbar-title">
+        <span>{% block header_title %}WLAN Observatory{% endblock %}</span>
+        <span class="prov-badge prov-measured">CRAWDAD PAM'09</span>
+      </div>
+      <div class="system-status">
+        <span class="status-dot"></span>
+        <span>Engine Operational</span>
+      </div>
+    </header>
+
+    <main id="content-area">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <script src="/static/js/core/api.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
