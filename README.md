@@ -21,48 +21,26 @@
 
 ### 1. Telemetry Overview & Link Profiles
 > *Interactive aggregate link distributions, SNR vs. delivery rates, and trace summaries.*
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        [ SCREENSHOT PLACEHOLDER ]                      │
-│                  docs/screenshots/01_telemetry_overview.png            │
-└────────────────────────────────────────────────────────────────────────┘
-```
+<img width="2880" height="1532" alt="image" src="https://github.com/user-attachments/assets/546d8ff6-24a0-48fb-993c-c7f3bda8c6b3" />
+
 
 ### 2. Trace Preprocessing & Dataset Validation
 > *Manifest verification, checksum inspections, and microsecond timestamp audit.*
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        [ SCREENSHOT PLACEHOLDER ]                      │
-│                  docs/screenshots/02_dataset_validation.png            │
-└────────────────────────────────────────────────────────────────────────┘
-```
+<img width="2880" height="1622" alt="image" src="https://github.com/user-attachments/assets/13308feb-1c37-4e95-a4f7-92ee6310b19f" />
+
 
 ### 3. Channel Quality Ranking & Uncertainty Estimation
 > *Composite metric calculation, SNR/loss/interference weighting, and bootstrap ranking.*
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        [ SCREENSHOT PLACEHOLDER ]                      │
-│                  docs/screenshots/03_channel_ranking.png               │
-└────────────────────────────────────────────────────────────────────────┘
-```
+<img width="2880" height="1594" alt="image" src="https://github.com/user-attachments/assets/3e23f04e-9d38-4d8b-83e1-0949d599a0c5" />
+
 
 ### 4. Interactive CSMA/CA Backoff Simulator
 > *Per-slot DCF contention animation, station collision detection, CW backoff states, and throughput charts.*
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        [ SCREENSHOT PLACEHOLDER ]                      │
-│                  docs/screenshots/04_csma_ca_simulator.png             │
-└────────────────────────────────────────────────────────────────────────┘
-```
+<img width="2880" height="1606" alt="image" src="https://github.com/user-attachments/assets/0e418346-bd1e-4050-9c00-c11cd24eff96" />
+
 
 ### 5. Bianchi Model Analytical Validation
-> *Simulated saturation throughput plotted directly against Bianchi's theoretical Markov chain curves.*
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        [ SCREENSHOT PLACEHOLDER ]                      │
-│                  docs/screenshots/05_bianchi_validation.png            │
-└────────────────────────────────────────────────────────────────────────┘
-```
+<img width="2880" height="1626" alt="image" src="https://github.com/user-attachments/assets/9a372ff1-79f2-489a-ba69-3a2bd832b903" />
 
 ---
 
@@ -144,7 +122,7 @@ A full, chapter-by-chapter documentation source package is available in the [`do
 - **[docs/08_literature_review_and_references.md](docs/08_literature_review_and_references.md)** — Comprehensive academic literature review and bibliography.
 - **[docs/09_limitations_and_future_work.md](docs/09_limitations_and_future_work.md)** — Analytical constraints, threats to validity, and research roadmap.
 - **[docs/10_report_evidence_index.md](docs/10_report_evidence_index.md)** — Traceability matrix linking all equations and metrics directly to source files.
-- **[docs/project_report_evidence.md](docs/project_report_evidence.md)** — Complete unabridged 63 KB unified reference report.
+- **[docs/project_report_evidence.md](docs/project_report_evidence.md)** — Complete unabridged unified reference report.
 
 ---
 
